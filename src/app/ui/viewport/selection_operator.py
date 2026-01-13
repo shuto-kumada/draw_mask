@@ -608,6 +608,50 @@ class SelectionOperator:
                     all_fixed_3d.append(pos)
             if all_fixed_3d:
                 fixed_3d_tree = cKDTree(all_fixed_3d)
+        
+        # ストロークの累積距離 (Arc Length) を計算
+        segment_lens = np.linalg.norm(np.diff(stroke_3d_points, axis=0), axis=1)
+        cum_dist = np.insert(np.cumsum(segment_lens), 0, 0)
+        total_length = cum_dist[-1]
+
+        # 交差点の検出
+        intersect_dist_on_stroke = 0.0
+        has_intersection = False
+
+        if fixed_3d_tree:
+            # ストローク上の点と固定点群との距離
+            dists_to_fixed, _ = fixed_3d_tree.query(stroke_3d_points)
+            min_idx = np.argmin(dists_to_fixed)
+            
+            # 近接判定 (モデルサイズの1%程度まで近づけば交差とみなす)
+            threshold = mesh.length * 0.01 
+            if dists_to_fixed[min_idx] < threshold:
+                has_intersection = True
+                intersect_dist_on_stroke = cum_dist[min_idx]
+
+        # プロファイル計算用のパラメータ
+        mag = params['magnitude'] * 0.01
+        prof = params['profile']
+        
+        # ストローク上の各点における「変形の強さ(0.0~1.0)」を事前計算
+        # これが "Generate Objectのような" スロープを作ります
+        stroke_factors = np.zeros(len(stroke_3d_points))
+
+        if has_intersection:
+            # Case A: 固定点あり (交差点で0、離れるほど強くなる)
+            dist_from_intersect = np.abs(cum_dist - intersect_dist_on_stroke)
+            max_d = np.max(dist_from_intersect)
+            if max_d < 1e-6: max_d = 1.0
+            stroke_factors = dist_from_intersect / max_d
+        else:
+            # Case B: 固定点なし (中心で最大、端で0)
+            center_dist = total_length / 2.0
+            dist_from_center = np.abs(cum_dist - center_dist)
+            max_d = total_length / 2.0
+            if max_d < 1e-6: max_d = 1.0
+            stroke_factors = 1.0 - (dist_from_center / max_d)
+            
+        stroke_factors = np.clip(stroke_factors, 0.0, 1.0)
 
         # 2. メッシュ頂点の検索用ツリー作成
         # 変形対象のメッシュをコピー
@@ -619,7 +663,7 @@ class SelectionOperator:
                 warped_mesh = warped_mesh.triangulate()
             
             limit_area = (warped_mesh.length * 0.01) ** 2
-            inf_radius = (params['influence'] / 100.0) * (warped_mesh.length * 0.2)
+            #inf_radius = (params['influence'] / 100.0) * (warped_mesh.length * 0.2)
             warped_mesh = SelectionOperator._adaptive_subdivide(warped_mesh, level=1, min_area=limit_area)
         else:
             # Trace Fit モード: メッシュ構造（四角形など）を維持したまま頂点のみ動かす
@@ -655,10 +699,11 @@ class SelectionOperator:
         
         # ストローク点群のKDTree
         stroke_tree = cKDTree(stroke_3d_points)
+        mesh_tree = cKDTree(vertices)
         
         # パラメータ
-        mag = params['magnitude'] * 0.01 # スケール調整
-        prof = params['profile']
+        #mag = params['magnitude'] * 0.01 # スケール調整
+        #prof = params['profile']
         # Influenceはピクセル単位ではなく「3D空間距離」として扱う必要がある
         # 簡易的にメッシュのバウンディングボックスからスケールを推定
         length = mesh.length # 対角線の長さ
@@ -685,7 +730,7 @@ class SelectionOperator:
             return warped_mesh
         
         # 法線チェック用の基準法線
-        mesh_tree = cKDTree(vertices)
+        #mesh_tree = cKDTree(vertices)
         _, nearest_indices = mesh_tree.query(stroke_3d_points)
         stroke_normals = normals[nearest_indices]
 
@@ -699,6 +744,7 @@ class SelectionOperator:
         for k, idx in enumerate(active_indices):
             d = dists[k]
             target_n = normals[idx]
+            nearest_stroke_idx = neighbor_indices[k]
             
             # 2. 法線チェック
             # 変形対象の頂点法線 (target_n) と、ストロークの法線 (ref_n) の内積をとる
@@ -724,12 +770,34 @@ class SelectionOperator:
                     mask_factor = f_dist / fix_threshold
                     mask_factor = np.clip(mask_factor, 0.0, 1.0)
                     mask_factor = mask_factor ** 2 # 滑らかに
-            """
             
             t = d / inf_radius
             if t > 1.0: t = 1.0
             decay = (1.0 - t) ** prof if prof > 0 else 1.0
-            displacement = mag * decay #* mask_factor
+            displacement = mag * decay * mask_factor
+            vertices[idx] += normals[idx] * displacement
+            """
+            
+            # 1. 縦方向の係数 (Longitudinal Factor)
+            # ストローク上の位置に応じた強さを取得 (これでスロープができる)
+            longitudinal_factor = stroke_factors[nearest_stroke_idx]
+            
+            # 2. 横方向の係数 (Cross-sectional Decay)
+            # ストローク中心から離れるほど弱くなる
+            t_cross = d / inf_radius
+            if t_cross > 1.0: t_cross = 1.0
+            cross_decay = (1.0 - t_cross)
+            
+            # 3. プロファイルの適用 (Profile Curve)
+            # Generate Objectでは h = mag * (t ^ prof)
+            # ここでは 縦×横 の係数に対してプロファイルをかける
+            combined_factor = longitudinal_factor * cross_decay
+            
+            final_factor = combined_factor ** prof if prof > 0 else 1.0
+            
+            # 最終変形量
+            displacement = mag * final_factor
+            
             vertices[idx] += normals[idx] * displacement
 
         # 4. メッシュ更新
