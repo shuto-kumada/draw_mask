@@ -21,3 +21,5 @@ Thumbs.db
 # 成果物はGitで管理せず、ローカルに残すのが一般的です
 output/
 input/
+
+memo.txt
