@@ -229,6 +229,7 @@ class Viewport3D(QWidget):
             # 座標変換のためにレンダリング更新が必要
             # (描画更新はしないが、内部行列は更新する必要があるため)
             # self.plotter.renderer.ResetCameraClippingRange() # 必要に応じて
+            self.plotter.render()
         
         # 変形実行 (内部でPickerやCoordinate変換が走る)
         result = self.apply_deformation_to_mesh(sketch_points, fixed_strokes, params, canvas_size, do_subdivide)
