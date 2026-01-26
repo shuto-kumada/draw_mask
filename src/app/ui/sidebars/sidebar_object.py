@@ -11,6 +11,7 @@ class ObjectSidebar(QWidget):
     toggle_edges = pyqtSignal(bool)
     toggle_edl = pyqtSignal(bool)
     toggle_gizmo = pyqtSignal(bool)
+    smooth_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,6 +46,17 @@ class ObjectSidebar(QWidget):
         
         layout.addWidget(self.mode_view_btn)
         layout.addWidget(self.mode_trace_btn)
+
+        self.btn_smooth = QPushButton("Smooth Mesh")
+        self.btn_smooth.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0; margin-top: 10px; padding: 6px;
+                border: 1px solid #999; border-radius: 4px;
+            }
+            QPushButton:hover { background-color: #d0d0d0; }
+        """)
+        self.btn_smooth.clicked.connect(self.smooth_clicked.emit)
+        layout.addWidget(self.btn_smooth)
         
         # 表示オプション
         layout.addSpacing(20)

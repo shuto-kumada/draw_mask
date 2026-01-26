@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
         self.object_sidebar.toggle_edges.connect(self.viewport.toggle_edges)
         self.object_sidebar.toggle_edl.connect(self.viewport.toggle_edl)
         self.object_sidebar.toggle_gizmo.connect(self.viewport.toggle_gizmo)
+        self.object_sidebar.smooth_clicked.connect(self.viewport.apply_global_smoothing)
 
         sidebar_layout.addWidget(self.sidebar_stack)
         main_layout.addWidget(sidebar_widget, 0)

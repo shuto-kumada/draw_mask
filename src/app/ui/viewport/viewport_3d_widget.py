@@ -76,7 +76,7 @@ class Viewport3D(QWidget):
         if self.isVisible() and self.plotter.width() > 1 and self.plotter.height() > 1:
             self.plotter.render()
     
-    def update_mesh(self, mesh, reset_camera=True, is_preview=False):
+    def update_mesh(self, mesh, reset_camera=True, is_preview=False, smooth_shading_enable=False):
         """メッシュを受け取って表示を更新する"""
         self.current_mesh = mesh
         self.original_mesh = mesh
@@ -94,7 +94,7 @@ class Viewport3D(QWidget):
 
             # 常に手前に表示されるように法線を再計算しておく
             if mesh.point_normals is None:
-                mesh.compute_normals(inplace=True, auto_orient_normals=True)
+                mesh.compute_normals(inplace=True, auto_orient_normals=False)
 
             # === 見た目の調整 ===
             # smooth_shading: 滑らかに表示
@@ -103,7 +103,7 @@ class Viewport3D(QWidget):
             self.actor = self.plotter.add_mesh(
                 mesh, 
                 color="lightblue",        # 明るい水色 (陰影が見やすい)
-                smooth_shading=False,      # 滑らかシェーディング
+                smooth_shading=smooth_shading_enable,
                 specular=0.5,             # 適度な光沢
                 specular_power=15,        # ハイライトの鋭さ
                 show_edges=False,         # ワイヤーフレームは最初はOFF
@@ -478,3 +478,30 @@ class Viewport3D(QWidget):
         return SelectionOperator.get_base_shape_from_sketch(
             self.current_mesh, sketch_points, self.plotter, canvas_size
         )
+
+    def apply_global_smoothing(self):
+        """現在のメッシュ全体にスムージングをかける"""
+        if not self.current_mesh:
+            return
+
+        # PolyDataであることを保証
+        if not isinstance(self.current_mesh, pv.PolyData):
+            self.current_mesh = self.current_mesh.extract_surface()
+
+        try:
+            print("Applying global smoothing...")
+            self.current_mesh.clean(inplace=True)
+            # Taubin smoothing: 形状(体積)を維持しながら滑らかにする
+            # n_iter: 回数 (多いほど滑らか)
+            # pass_band: 0.01~0.1 (小さいほど高周波ノイズを除去)
+            self.current_mesh.smooth_taubin(n_iter=30, pass_band=0.05, inplace=True)
+            
+            # 法線を再計算して陰影を綺麗にする
+            self.current_mesh.compute_normals(inplace=True, split_vertices=False, auto_orient_normals=False)
+            
+            # メッシュの更新（カメラ位置はリセットしない）
+            # smooth_shading_enable=True にすることで、見た目も滑らかにする
+            self.update_mesh(self.current_mesh, reset_camera=False, smooth_shading_enable=True)
+            
+        except Exception as e:
+            print(f"Smoothing failed: {e}")
