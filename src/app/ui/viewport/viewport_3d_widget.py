@@ -103,7 +103,7 @@ class Viewport3D(QWidget):
             self.actor = self.plotter.add_mesh(
                 mesh, 
                 color="lightblue",        # 明るい水色 (陰影が見やすい)
-                smooth_shading=True,      # 滑らかシェーディング
+                smooth_shading=False,      # 滑らかシェーディング
                 specular=0.5,             # 適度な光沢
                 specular_power=15,        # ハイライトの鋭さ
                 show_edges=False,         # ワイヤーフレームは最初はOFF
@@ -192,7 +192,7 @@ class Viewport3D(QWidget):
                 region, 
                 color="#FF0000",       # 赤色
                 opacity=0.9, 
-                smooth_shading=True, 
+                smooth_shading=False, 
                 name="trace_preview_patch"
             )
             
@@ -411,7 +411,7 @@ class Viewport3D(QWidget):
                 fitted_mesh,
                 color="#FF6600",       # オレンジ
                 opacity=1.0,
-                smooth_shading=True,
+                smooth_shading=False,
                 show_edges=False,
                 name="fitted_sketch",
                 specular=0.5,
@@ -459,7 +459,7 @@ class Viewport3D(QWidget):
         except: pass
 
         self.preview_actor = self.plotter.add_mesh(
-            mesh, color="#FF6600", opacity=1.0, smooth_shading=True,
+            mesh, color="#FF6600", opacity=1.0, smooth_shading=False,
             show_edges=False, name="fitted_sketch", specular=0.5, specular_power=15
         )
         mapper = self.preview_actor.GetMapper()
