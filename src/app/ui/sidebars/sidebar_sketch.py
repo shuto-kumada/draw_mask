@@ -10,6 +10,7 @@ class SketchSidebar(QWidget):
     tool_changed = pyqtSignal(str)
     param_changed = pyqtSignal()
     reset_clicked = pyqtSignal()
+    undo_clicked = pyqtSignal()
     save_clicked = pyqtSignal()
     run_clicked = pyqtSignal()
     fit_clicked = pyqtSignal()
@@ -66,6 +67,11 @@ class SketchSidebar(QWidget):
         self.btn_reset.setStyleSheet("background-color: #ffcccc; color: darkred;")
         self.btn_reset.clicked.connect(self.reset_clicked.emit)
         layout.addWidget(self.btn_reset)
+
+        self.btn_undo = QPushButton("Undo")
+        self.btn_undo.setStyleSheet("background-color: #ffffcc; color: darkred;")
+        self.btn_undo.clicked.connect(self.undo_clicked.emit)
+        layout.addWidget(self.btn_undo)
 
         self.btn_save = QPushButton("Save Sketch Image")
         self.btn_save.clicked.connect(self.save_clicked.emit)

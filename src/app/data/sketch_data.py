@@ -15,6 +15,8 @@ class SketchData:
             'deformation': []        # 変形用 (パラメータ付き)
         }
 
+        self.history = []  # アンドゥ用に履歴を保存するリスト
+
     def add_stroke(self, stroke_type, points, params=None):
        """
        params: {
@@ -32,17 +34,60 @@ class SketchData:
                 if stroke_type == 'deformation':
                     if params is None: 
                         params = {'magnitude': 50, 'profile': 1.0, 'influence': 1.0}
-                    self.strokes[stroke_type].append({
+                    added_obj = {
                         'points': pts_array,
                         'params': params
-                    })
+                    }
+                    self.strokes[stroke_type].append(added_obj)
                 else:
                     # boundary, base_line, hole は座標のみ
-                    self.strokes[stroke_type].append(pts_array)
+                    added_obj = pts_array
+                    self.strokes[stroke_type].append(added_obj)
+            
+            self.history.append({
+                    'type': stroke_type,
+                    'data': added_obj,
+                    # 描画再現用に生の点群も保持しておく
+                    'points': points, 
+                    'params': params
+                })
+    
+    def undo(self):
+        """
+        最後に描いたストロークを取り消す
+        戻り値: True=成功, False=履歴なし
+        """
+        if not self.history:
+            return False
+            
+        # 1. 履歴から最後の操作を取り出す
+        last_action = self.history.pop()
+        s_type = last_action['type']
+        target_obj = last_action['data']
+        
+        # 2. 現在のストロークデータから、そのオブジェクトを削除する
+        if s_type in self.strokes:
+            target_list = self.strokes[s_type]
+            
+            # 消しゴム等でリストが再生成されている場合、オブジェクトIDが変わっている可能性があるため
+            # try-except で安全に削除を試みる
+            try:
+                # リスト内に同一オブジェクトがあれば削除
+                if target_obj in target_list:
+                    target_list.remove(target_obj)
+                else:
+                    # オブジェクトが見つからない場合（消しゴムで分割された後など）
+                    # 厳密なUndoは難しいが、ここではエラーにせず「履歴からは消えた」こととする
+                    pass
+            except ValueError:
+                pass
+                
+        return True
 
     def clear(self):
         for key in self.strokes:
             self.strokes[key] = []
+        self.history = []
     
     def get_strokes(self):
         return self.strokes

@@ -224,3 +224,60 @@ class SketchCanvas(QWidget):
     
     def resizeEvent(self, event):
         super().resizeEvent(event)
+
+    def undo(self):
+        """Undo実行: 履歴を1つ戻して、キャンバスを全描画し直す"""
+        # データ上のUndoを実行
+        if self.sketch_data.undo():
+            # 成功したら、見た目を更新（白紙に戻して履歴から全描画）
+            self.redraw_from_history()
+            print("Undo executed")
+        else:
+            print("Nothing to undo")
+    
+    def redraw_from_history(self):
+        """履歴データを元にキャンバスを全描画し直す"""
+        # 1. 白紙に戻す
+        self.pixmap.fill(Qt.GlobalColor.white)
+        
+        painter = QPainter(self.pixmap)
+        
+        # 2. 履歴順に描画
+        for record in self.sketch_data.history:
+            s_type = record['type']
+            points = record['points']
+            params = record.get('params', {})
+            
+            # ツールの色設定を一時的に再現
+            pen_color, pen_width = self._get_pen_style(s_type, params)
+            
+            pen = QPen(pen_color, pen_width, Qt.PenStyle.SolidLine, 
+                       Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            
+            # 線を描画
+            if len(points) > 1:
+                # QPointのリストに変換
+                qpoints = [QPoint(*pt) for pt in points]
+                for i in range(len(qpoints) - 1):
+                    painter.drawLine(qpoints[i], qpoints[i+1])
+                    
+        painter.end()
+        self.update()
+
+    def _get_pen_style(self, tool_type, params):
+        """ツールタイプに応じたペン設定を返すヘルパー"""
+        if tool_type == 'deformation':
+            mag = params.get('magnitude', 50)
+            alpha = min(255, int(abs(mag) * 2.0 + 55))
+            if mag > 5: color = QColor(255, 0, 0, alpha)
+            elif mag < -5: color = QColor(0, 0, 255, alpha)
+            else: color = QColor(0, 255, 0, 200)
+            return color, 4
+            
+        elif tool_type == 'boundary_fixed': return Qt.GlobalColor.black, 3
+        elif tool_type == 'boundary_free': return QColor(0, 0, 139), 3
+        elif tool_type == 'fixed_point': return QColor(200, 200, 200), 3
+        elif tool_type == 'hole': return QColor(150, 150, 150), 3
+        
+        return Qt.GlobalColor.black, 2

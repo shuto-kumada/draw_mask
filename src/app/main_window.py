@@ -100,11 +100,12 @@ class MainWindow(QMainWindow):
         # シグナル
         self.sketch_sidebar.tool_changed.connect(self.canvas.set_tool)
         self.sketch_sidebar.param_changed.connect(self.on_param_changed)
-        self.sketch_sidebar.reset_clicked.connect(self.on_canvas_reset) # 修正
+        self.sketch_sidebar.reset_clicked.connect(self.on_canvas_reset)
+        self.sketch_sidebar.undo_clicked.connect(self.canvas.undo)
         self.sketch_sidebar.save_clicked.connect(self.on_save_sketch_clicked)
         self.sketch_sidebar.run_clicked.connect(self.on_run_clicked)
         self.sketch_sidebar.fit_clicked.connect(self.on_fit_to_object_clicked)
-        self.sketch_sidebar.trace_fit_clicked.connect(self.on_trace_fit_clicked) # [追加]
+        self.sketch_sidebar.trace_fit_clicked.connect(self.on_trace_fit_clicked)
 
         self.object_sidebar = ObjectSidebar()
         self.sidebar_stack.addWidget(self.object_sidebar)
