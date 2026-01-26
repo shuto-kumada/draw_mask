@@ -653,11 +653,16 @@ class SelectionOperator:
             
         stroke_factors = np.clip(stroke_factors, 0.0, 1.0)
 
+        length = mesh.length
+        inf_radius = (params['influence'] / 100.0) * (length * 0.2)
+        if inf_radius < 1e-6: inf_radius = 1e-6
+
         # 2. メッシュ頂点の検索用ツリー作成
         # 変形対象のメッシュをコピー
         warped_mesh = mesh.copy()
 
         if do_subdivide:
+            warped_mesh = SelectionOperator._local_subdivide_around_stroke(warped_mesh, stroke_3d_points, inf_radius)
             # Fit Object モード: 局所的な三角形化と再分割を行う
             if not warped_mesh.is_all_triangles:
                 warped_mesh = warped_mesh.triangulate()
@@ -980,3 +985,86 @@ class SelectionOperator:
         
         print(f"Local Refinement complete: {main_mesh.n_cells} -> {final_mesh.n_cells} faces")
         return final_mesh
+    
+    @staticmethod
+    def _local_subdivide_around_stroke(mesh, stroke_points, influence_radius):
+        """
+        ストローク周辺のメッシュ密度が足りない場合、局所的に再分割を行う。
+        """
+        if not mesh or mesh.n_cells == 0:
+            return mesh
+
+        # 現在の密度をチェック
+        # (簡易的に、メッシュ全体の平均エッジ長の3倍程度を「粗い」とみなす、
+        #  あるいは影響半径に対してエッジが長すぎるかをチェックする)
+        
+        target_edge_len = influence_radius * 0.5  # 影響半径の半分くらいの細かさが欲しい
+        
+        # 細胞(Cell)の中心点を取得
+        cell_centers = mesh.cell_centers().points
+        if len(cell_centers) == 0: return mesh
+
+        # ストロークに近いセルを探す
+        # (KDTreeを使って高速検索)
+        from scipy.spatial import cKDTree
+        tree = cKDTree(cell_centers)
+        
+        # 影響範囲より少し広めに検索 (半径の1.5倍)
+        search_radius = influence_radius * 1.5
+        
+        # ストローク点群に対して近傍検索
+        # query_ball_point はリストのリストを返す
+        indices_list = tree.query_ball_point(stroke_points, r=search_radius)
+        
+        # 重複を除いてセットにする
+        target_cell_indices = set()
+        for indices in indices_list:
+            target_cell_indices.update(indices)
+            
+        if not target_cell_indices:
+            return mesh
+
+        target_cell_indices = list(target_cell_indices)
+
+        # 抽出した領域のエッジ長さを確認（計算コスト削減のため、一部だけサンプリングしても良い）
+        # ここでは「抽出した領域をとりあえず1回分割する」というロジックにする
+        # (本来は長さチェックを入れるとより良いですが、必ず細かくしたいので実行します)
+
+        # === 領域分割処理 ===
+        try:
+            # 1. 領域を切り出す
+            selected_region = mesh.extract_cells(target_cell_indices).extract_surface()
+            
+            # 2. 残りの領域
+            # (全IDから選択IDを引く)
+            all_indices = set(range(mesh.n_cells))
+            rest_indices = list(all_indices - set(target_cell_indices))
+            
+            rest_region = None
+            if rest_indices:
+                rest_region = mesh.extract_cells(rest_indices).extract_surface()
+            
+            # 3. 選択領域を分割 (Linear=形状を変えずに頂点だけ増やす)
+            # 粗すぎる場合は level=2 にするなど調整可能
+            subdivided_region = selected_region.subdivide(1, subfilter='linear')
+            
+            # 4. 結合 (Rest + Subdivided)
+            if rest_region:
+                combined = rest_region + subdivided_region
+            else:
+                combined = subdivided_region
+            
+            # 5. 頂点のマージ (Clean)
+            # 分割境界の頂点を結合する。toleranceはモデルサイズに合わせて小さめに
+            # 大きすぎると形状が崩れるので注意
+            tol = mesh.length * 0.001 
+            combined.clean(tolerance=tol, inplace=True)
+            
+            # 法線再計算 (角ばったままにするなら feature_angle=0, 滑らかにするなら除去)
+            combined.compute_normals(inplace=True, feature_angle=0, auto_orient_normals=False)
+            
+            return combined
+
+        except Exception as e:
+            print(f"Local subdivision failed: {e}")
+            return mesh
