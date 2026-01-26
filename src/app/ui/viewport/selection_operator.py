@@ -812,8 +812,38 @@ class SelectionOperator:
         try:
             warped_mesh.smooth_taubin(n_iter=50, pass_band=0.05, inplace=True)
         except: pass
-
         #"""
+
+        """
+        if active_indices:
+            try:
+                # (1) 変形に関わった頂点を含む領域だけを抽出
+                # extract_points は指定した頂点を使用しているセルを抽出します
+                # これにより「変形領域」+「その隣接セル(境界)」が取れます
+                sub_mesh = warped_mesh.extract_points(active_indices, include_cells=True)
+                
+                # PolyDataであることを保証
+                if not isinstance(sub_mesh, pv.PolyData):
+                    sub_mesh = sub_mesh.extract_surface()
+                
+                # (2) 元の頂点IDを保持しているか確認 (PyVistaは通常 vtkOriginalPointIds を持ちます)
+                if 'vtkOriginalPointIds' in sub_mesh.point_data:
+                    orig_ids = sub_mesh.point_data['vtkOriginalPointIds']
+                    
+                    # (3) 抽出領域のみスムージング
+                    # boundary_smoothing=False にすることで、
+                    # 切り出したパッチの「縁（＝変形していない領域との境界）」を固定します。
+                    sub_mesh.smooth_taubin(n_iter=50, pass_band=0.05, inplace=True, boundary_smoothing=False)
+                    
+                    # (4) 滑らかになった座標を元のメッシュに書き戻す
+                    # 境界は固定されているため、元のメッシュと隙間なく繋がります
+                    warped_mesh.points[orig_ids] = sub_mesh.points
+                    
+            except Exception as e:
+                print(f"Local smoothing failed: {e}")
+                pass
+        """
+
         warped_mesh.compute_normals(inplace=True, feature_angle=0, auto_orient_normals=False)
         
         return warped_mesh
@@ -990,81 +1020,72 @@ class SelectionOperator:
     def _local_subdivide_around_stroke(mesh, stroke_points, influence_radius):
         """
         ストローク周辺のメッシュ密度が足りない場合、局所的に再分割を行う。
+        (ROI/BoundingBoxを使って確実にセルを捉える改良版)
         """
         if not mesh or mesh.n_cells == 0:
             return mesh
 
-        # 現在の密度をチェック
-        # (簡易的に、メッシュ全体の平均エッジ長の3倍程度を「粗い」とみなす、
-        #  あるいは影響半径に対してエッジが長すぎるかをチェックする)
+        # 1. 分割対象のセルを特定する (Bounding Box検索)
+        # 影響範囲(ROI)に含まれるセルを広く取る
+        margin = influence_radius * 2.0
+        p_min = np.min(stroke_points, axis=0) - margin
+        p_max = np.max(stroke_points, axis=0) + margin
         
-        target_edge_len = influence_radius * 0.5  # 影響半径の半分くらいの細かさが欲しい
+        # セル中心がBOX内にあるものを高速フィルタリング
+        centers = mesh.cell_centers().points
+        mask = (
+            (centers[:,0] >= p_min[0]) & (centers[:,0] <= p_max[0]) &
+            (centers[:,1] >= p_min[1]) & (centers[:,1] <= p_max[1]) &
+            (centers[:,2] >= p_min[2]) & (centers[:,2] <= p_max[2])
+        )
+        target_ids = np.where(mask)[0]
         
-        # 細胞(Cell)の中心点を取得
-        cell_centers = mesh.cell_centers().points
-        if len(cell_centers) == 0: return mesh
+        # もしBOX検索で取れなかった場合(ポリゴンが巨大すぎる場合)への保険:
+        # ストローク点に最も近いセルを追加
+        if len(target_ids) == 0:
+            try:
+                closest_ids = np.unique(mesh.find_closest_cell(stroke_points))
+                target_ids = np.union1d(target_ids, closest_ids)
+            except: pass
 
-        # ストロークに近いセルを探す
-        # (KDTreeを使って高速検索)
-        from scipy.spatial import cKDTree
-        tree = cKDTree(cell_centers)
+        if len(target_ids) == 0: return mesh
+
+        # 2. 現在の密度を確認
+        check_region = mesh.extract_cells(target_ids)
+        if check_region.n_points == 0: return mesh
+
+        sizes = check_region.compute_cell_sizes()
+        avg_area = np.mean(sizes['Area'])
+        current_spacing = np.sqrt(avg_area) # 簡易的なエッジ長推定
         
-        # 影響範囲より少し広めに検索 (半径の1.5倍)
-        search_radius = influence_radius * 1.5
+        target_spacing = influence_radius * 0.3 # 影響半径の30%以下の細かさを目指す
+        if target_spacing <= 1e-6: target_spacing = 1e-6
         
-        # ストローク点群に対して近傍検索
-        # query_ball_point はリストのリストを返す
-        indices_list = tree.query_ball_point(stroke_points, r=search_radius)
-        
-        # 重複を除いてセットにする
-        target_cell_indices = set()
-        for indices in indices_list:
-            target_cell_indices.update(indices)
-            
-        if not target_cell_indices:
+        if current_spacing <= target_spacing:
             return mesh
-
-        target_cell_indices = list(target_cell_indices)
-
-        # 抽出した領域のエッジ長さを確認（計算コスト削減のため、一部だけサンプリングしても良い）
-        # ここでは「抽出した領域をとりあえず1回分割する」というロジックにする
-        # (本来は長さチェックを入れるとより良いですが、必ず細かくしたいので実行します)
-
-        # === 領域分割処理 ===
+            
+        # 必要な分割レベルを計算
+        ratio = current_spacing / target_spacing
+        level = int(np.ceil(np.log2(ratio)))
+        level = np.clip(level, 1, 3) # 最大3回まで
+        
+        # 3. 再分割実行
         try:
-            # 1. 領域を切り出す
-            selected_region = mesh.extract_cells(target_cell_indices).extract_surface()
+            # 分割対象とそれ以外を分ける
+            all_ids = np.arange(mesh.n_cells)
+            rest_ids = np.setdiff1d(all_ids, target_ids)
             
-            # 2. 残りの領域
-            # (全IDから選択IDを引く)
-            all_indices = set(range(mesh.n_cells))
-            rest_indices = list(all_indices - set(target_cell_indices))
+            selection = mesh.extract_cells(target_ids).extract_surface()
+            rest = mesh.extract_cells(rest_ids).extract_surface()
             
-            rest_region = None
-            if rest_indices:
-                rest_region = mesh.extract_cells(rest_indices).extract_surface()
+            # Linear分割 (形状を変えずに頂点を増やす)
+            refined = selection.triangulate().subdivide(level, subfilter='linear')
             
-            # 3. 選択領域を分割 (Linear=形状を変えずに頂点だけ増やす)
-            # 粗すぎる場合は level=2 にするなど調整可能
-            subdivided_region = selected_region.subdivide(1, subfilter='linear')
+            # 結合 (Cleanで頂点をマージ)
+            merged = (rest + refined).clean(tolerance=mesh.length * 0.0001)
+            merged.compute_normals(inplace=True, auto_orient_normals=True)
+            return merged
             
-            # 4. 結合 (Rest + Subdivided)
-            if rest_region:
-                combined = rest_region + subdivided_region
-            else:
-                combined = subdivided_region
-            
-            # 5. 頂点のマージ (Clean)
-            # 分割境界の頂点を結合する。toleranceはモデルサイズに合わせて小さめに
-            # 大きすぎると形状が崩れるので注意
-            tol = mesh.length * 0.001 
-            combined.clean(tolerance=tol, inplace=True)
-            
-            # 法線再計算 (角ばったままにするなら feature_angle=0, 滑らかにするなら除去)
-            combined.compute_normals(inplace=True, feature_angle=0, auto_orient_normals=False)
-            
-            return combined
-
         except Exception as e:
             print(f"Local subdivision failed: {e}")
             return mesh
