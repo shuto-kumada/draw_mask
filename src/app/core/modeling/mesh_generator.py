@@ -26,6 +26,11 @@ class MeshGenerator:
             all_lines.append(LineString(poly))
 
         for key, lines in strokes_dict.items():
+            """
+            if key != 'hole':
+                continue
+            """
+
             for line in lines:
                 line = clean_polygon(line)
                 if len(line) >= 2:
