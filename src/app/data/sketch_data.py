@@ -63,24 +63,25 @@ class SketchData:
         # 1. 履歴から最後の操作を取り出す
         last_action = self.history.pop()
         s_type = last_action['type']
-        target_obj = last_action['data']
+        target_obj = last_action['data'] # 追加時に保存したオブジェクトの参照
         
         # 2. 現在のストロークデータから、そのオブジェクトを削除する
         if s_type in self.strokes:
             target_list = self.strokes[s_type]
             
-            # 消しゴム等でリストが再生成されている場合、オブジェクトIDが変わっている可能性があるため
-            # try-except で安全に削除を試みる
-            try:
-                # リスト内に同一オブジェクトがあれば削除
-                if target_obj in target_list:
-                    target_list.remove(target_obj)
-                else:
-                    # オブジェクトが見つからない場合（消しゴムで分割された後など）
-                    # 厳密なUndoは難しいが、ここではエラーにせず「履歴からは消えた」こととする
-                    pass
-            except ValueError:
-                pass
+            # 【修正点】
+            # NumPy配列や配列を含むDictに対して list.remove(obj) を使うと、
+            # 要素ごとの比較(==)が走ってしまいエラーになるため、
+            # オブジェクトの同一性(is)で対象インデックスを探して削除する。
+            
+            remove_index = -1
+            for i, item in enumerate(target_list):
+                if item is target_obj: # メモリアドレス(実体)が同じかチェック
+                    remove_index = i
+                    break
+            
+            if remove_index != -1:
+                target_list.pop(remove_index)
                 
         return True
 
