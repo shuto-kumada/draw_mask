@@ -49,7 +49,7 @@ class SketchSidebar(QWidget):
         # パラメータ
         layout.addWidget(QLabel("Magnitude"))
         self.slider_mag = QSlider(Qt.Orientation.Horizontal)
-        self.slider_mag.setRange(-1000, 1000); self.slider_mag.setValue(50)
+        self.slider_mag.setRange(-100, 100); self.slider_mag.setValue(50)
         self.slider_mag.valueChanged.connect(self.param_changed.emit)
         layout.addWidget(self.slider_mag)
 

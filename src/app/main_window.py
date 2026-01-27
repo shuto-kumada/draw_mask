@@ -214,16 +214,16 @@ class MainWindow(QMainWindow):
         w = self.canvas.width()
         h = self.canvas.height()
 
-        do_subdivide = self.sketch_sidebar.chk_auto_subdivide.isChecked()
+        is_region_subdivide_on = self.sketch_sidebar.chk_auto_subdivide.isChecked()
 
         if deformations:
             print("Deforming base object...")
             for item in deformations:
                 points = item['points']
                 params = item['params']
-                self.viewport.apply_deformation_to_mesh(points, fixed_points, params, (w, h), do_subdivide=do_subdivide)
+                self.viewport.apply_deformation_to_mesh(points, fixed_points, params, (w, h), do_subdivide=False)
 
-        success = self.viewport.fit_sketch_to_object(polygon, holes, (w, h), do_subdivide=do_subdivide)
+        success = self.viewport.fit_sketch_to_object(polygon, holes, (w, h), do_subdivide=is_region_subdivide_on)
         
         if not success:
              QMessageBox.warning(self, "Failed", "オブジェクトへの投影に失敗しました。")
@@ -312,17 +312,17 @@ class MainWindow(QMainWindow):
         
         w = self.canvas.width(); h = self.canvas.height()
 
-        do_subdivide = self.sketch_sidebar.chk_auto_subdivide.isChecked()
+        is_region_subdivide_on = self.sketch_sidebar.chk_auto_subdivide.isChecked()
 
         # 1. Trace視点で変形
         if deformations:
             print("Deforming with Trace View...")
             for item in deformations:
                 points = item['points']; params = item['params']
-                self.viewport.apply_deformation_with_trace_view(points, fixed_points, params, (w, h), do_subdivide=do_subdivide)
+                self.viewport.apply_deformation_with_trace_view(points, fixed_points, params, (w, h), do_subdivide=False)
 
         # 2. Trace視点でパッチ生成
-        success = self.viewport.fit_trace_to_object(polygon, holes, (w, h), do_subdivide=do_subdivide)
+        success = self.viewport.fit_trace_to_object(polygon, holes, (w, h), do_subdivide=is_region_subdivide_on)
         if not success: QMessageBox.warning(self, "Failed", "投影に失敗しました。")
     
     def on_mesh_refined(self, mesh):
