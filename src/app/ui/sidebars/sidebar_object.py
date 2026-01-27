@@ -12,6 +12,7 @@ class ObjectSidebar(QWidget):
     toggle_edl = pyqtSignal(bool)
     toggle_gizmo = pyqtSignal(bool)
     smooth_clicked = pyqtSignal()
+    subdivide_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,6 +58,18 @@ class ObjectSidebar(QWidget):
         """)
         self.btn_smooth.clicked.connect(self.smooth_clicked.emit)
         layout.addWidget(self.btn_smooth)
+
+        self.btn_subdivide = QPushButton("Subdivide Mesh")
+        self.btn_subdivide.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0; margin-top: 5px; padding: 6px;
+                border: 1px solid #999; border-radius: 4px;
+            }
+            QPushButton:hover { background-color: #d0d0d0; }
+        """)
+        self.btn_subdivide.setToolTip("メッシュを細かく分割して、変形の解像度を上げます")
+        self.btn_subdivide.clicked.connect(self.subdivide_clicked.emit)
+        layout.addWidget(self.btn_subdivide)
         
         # 表示オプション
         layout.addSpacing(20)

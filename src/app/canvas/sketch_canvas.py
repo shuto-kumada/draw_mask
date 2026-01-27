@@ -258,7 +258,7 @@ class SketchCanvas(QWidget):
             # 線を描画
             if len(points) > 1:
                 # QPointのリストに変換
-                qpoints = [QPoint(*pt) for pt in points]
+                qpoints = [QPoint(int(pt[0]), int(pt[1])) for pt in points]
                 for i in range(len(qpoints) - 1):
                     painter.drawLine(qpoints[i], qpoints[i+1])
                     

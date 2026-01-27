@@ -1006,10 +1006,12 @@ class SelectionOperator:
         # === スムージングで滑らかにする ===
         # 再分割によってカクカクした面が目立つのを防ぐため、軽くスムージングをかける
         # (形状が変わりすぎないよう、反復回数は少なめに)
+        #"""
         try:
             final_mesh.smooth_taubin(n_iter=50, pass_band=0.1, inplace=True)
         except:
             pass
+        #"""
         
         final_mesh.compute_normals(inplace=True, feature_angle=0, auto_orient_normals=False)
         

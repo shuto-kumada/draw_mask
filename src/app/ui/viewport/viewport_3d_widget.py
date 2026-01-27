@@ -505,3 +505,38 @@ class Viewport3D(QWidget):
             
         except Exception as e:
             print(f"Smoothing failed: {e}")
+
+    def apply_global_subdivision(self):
+        """現在のメッシュ全体を再分割して細かくする"""
+        if not self.current_mesh:
+            return
+
+        if not isinstance(self.current_mesh, pv.PolyData):
+            self.current_mesh = self.current_mesh.extract_surface()
+
+        try:
+            print("Applying global subdivision...")
+            
+            # 三角形化していないと分割できない場合があるため、念のため実行
+            if not self.current_mesh.is_all_triangles:
+                self.current_mesh = self.current_mesh.triangulate()
+
+            # Subdivide: 1回実行すると頂点数が約4倍になります
+            # subfilter='linear': 形状を変えずに頂点だけ増やす (変形前の密度確保に最適)
+            # subfilter='loop': 丸めながら増やす (既に形ができている場合はlinear推奨)
+            self.current_mesh = self.current_mesh.subdivide(1, subfilter='linear')
+            
+            # 法線再計算
+            self.current_mesh.compute_normals(inplace=True, feature_angle=0, auto_orient_normals=False)
+            
+            # 表示更新 (スムーズシェーディングを維持)
+            self.update_mesh(
+                self.current_mesh, 
+                reset_camera=False, 
+                smooth_shading_enable=False
+            )
+            
+            print(f"Subdivision complete. Points: {self.current_mesh.n_points}")
+            
+        except Exception as e:
+            print(f"Subdivision failed: {e}")
