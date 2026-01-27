@@ -69,6 +69,8 @@ class Viewport3D(QWidget):
         self.btn_trace_reset.setStyleSheet("background-color: #ffcccc; color: darkred; font-weight: bold; border-radius: 4px; padding: 5px;")
         self.btn_trace_reset.clicked.connect(self.on_trace_reset)
         self.btn_trace_reset.hide()
+
+        self.auto_subdivide_enabled = True
     
     # --- 基本機能 ---
     def _safe_render(self):
@@ -179,7 +181,8 @@ class Viewport3D(QWidget):
             outline_2d, 
             [], # Traceモードでは現在穴ストロークは未定義
             self.plotter, 
-            (w, h)
+            (w, h),
+            do_subdivide=self.auto_subdivide_enabled
         )
         
         if region and region.n_points > 0:
@@ -246,7 +249,7 @@ class Viewport3D(QWidget):
         print("DEBUG: Yes button clicked!") # デバッグ用ログ
         
         if self.current_mesh and self.pending_region_mesh:
-            refined = SelectionOperator.subdivide_region(self.current_mesh, self.pending_region_mesh)
+            refined = SelectionOperator.subdivide_region(self.current_mesh, self.pending_region_mesh, do_subdivide=self.auto_subdivide_enabled)
             if refined:
                 self.update_mesh(refined, reset_camera=False)
                 self.mesh_refined.emit(refined)
@@ -391,7 +394,7 @@ class Viewport3D(QWidget):
             
         return False
 
-    def fit_sketch_to_object(self, sketch_points, hole_strokes, canvas_size):
+    def fit_sketch_to_object(self, sketch_points, hole_strokes, canvas_size, do_subdivide=True):
         """
         MeshGeneratorで生成されたメッシュを受け取り、強調表示する
         """
@@ -400,7 +403,7 @@ class Viewport3D(QWidget):
 
         # SelectionOperator.create_high_quality_patch を使用
         fitted_mesh = SelectionOperator.create_high_quality_patch(
-            self.current_mesh, sketch_points, hole_strokes, self.plotter, canvas_size
+            self.current_mesh, sketch_points, hole_strokes, self.plotter, canvas_size, do_subdivide=do_subdivide
         )
 
         if fitted_mesh:
@@ -428,7 +431,7 @@ class Viewport3D(QWidget):
             
         return False
     
-    def fit_trace_to_object(self, sketch_points, hole_strokes, canvas_size):
+    def fit_trace_to_object(self, sketch_points, hole_strokes, canvas_size, do_subdivide=True):
         if not self.current_mesh: return False
         
         # 1. 視点復元
@@ -438,7 +441,7 @@ class Viewport3D(QWidget):
         
         # 2. パッチ生成 (現在のプロッター設定で計算)
         fitted_mesh = SelectionOperator.create_high_quality_patch(
-            self.current_mesh, sketch_points, hole_strokes, self.plotter, canvas_size
+            self.current_mesh, sketch_points, hole_strokes, self.plotter, canvas_size, do_subdivide=do_subdivide
         )
         
         # 3. 視点を戻す
@@ -540,3 +543,6 @@ class Viewport3D(QWidget):
             
         except Exception as e:
             print(f"Subdivision failed: {e}")
+
+    def set_auto_subdivide(self, enabled):
+        self.auto_subdivide_enabled = enabled

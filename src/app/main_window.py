@@ -127,6 +127,12 @@ class MainWindow(QMainWindow):
         self.view_stack.addWidget(scroll_area); self.view_stack.addWidget(self.viewport)
         main_layout.addWidget(self.view_stack, 1)
 
+        self.sketch_sidebar.chk_auto_subdivide.stateChanged.connect(
+            lambda state: self.viewport.set_auto_subdivide(state == 2) # Qt.CheckState.Checked = 2
+        )
+        # 初期値をセット
+        self.viewport.set_auto_subdivide(self.sketch_sidebar.chk_auto_subdivide.isChecked())
+
     # --- イベントハンドラ ---
     def on_mode_changed(self, index):
         self.sidebar_stack.setCurrentIndex(index)
@@ -217,7 +223,7 @@ class MainWindow(QMainWindow):
                 params = item['params']
                 self.viewport.apply_deformation_to_mesh(points, fixed_points, params, (w, h), do_subdivide=do_subdivide)
 
-        success = self.viewport.fit_sketch_to_object(polygon, holes, (w, h))
+        success = self.viewport.fit_sketch_to_object(polygon, holes, (w, h), do_subdivide=do_subdivide)
         
         if not success:
              QMessageBox.warning(self, "Failed", "オブジェクトへの投影に失敗しました。")
@@ -316,7 +322,7 @@ class MainWindow(QMainWindow):
                 self.viewport.apply_deformation_with_trace_view(points, fixed_points, params, (w, h), do_subdivide=do_subdivide)
 
         # 2. Trace視点でパッチ生成
-        success = self.viewport.fit_trace_to_object(polygon, holes, (w, h))
+        success = self.viewport.fit_trace_to_object(polygon, holes, (w, h), do_subdivide=do_subdivide)
         if not success: QMessageBox.warning(self, "Failed", "投影に失敗しました。")
     
     def on_mesh_refined(self, mesh):

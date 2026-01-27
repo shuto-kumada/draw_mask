@@ -355,7 +355,7 @@ class SelectionOperator:
 
     # === 高品質パッチ生成 (Triangle生成 -> 投影 -> 再分割) ===
     @staticmethod
-    def create_high_quality_patch(mesh, sketch_points, hole_strokes, plotter, canvas_size):
+    def create_high_quality_patch(mesh, sketch_points, hole_strokes, plotter, canvas_size, do_subdivide=True):
         """
         スケッチ輪郭内を2Dでメッシュ分割し、レイキャストでオブジェクト表面に投影。
         さらに再分割(Subdivide)して滑らかにする。
@@ -522,9 +522,12 @@ class SelectionOperator:
         # === 再分割と吸着 ===
         try:
             # 1. 細分化 (Linear分割)
-            #subdivided = patch_mesh.subdivide(2, subfilter='linear')
-            limit_area = (patch_mesh.length * 0.01) ** 2
-            subdivided = SelectionOperator._adaptive_subdivide(patch_mesh, level=2, min_area=limit_area)
+            if do_subdivide:
+                limit_area = (patch_mesh.length * 0.01) ** 2
+                subdivided = SelectionOperator._adaptive_subdivide(patch_mesh, level=2, min_area=limit_area)
+            else:
+                # 再分割しない場合はそのまま使う
+                subdivided = patch_mesh.copy()
             
             # 2. 吸着 (Projection)
             # 増えた頂点は平面上にあるため、再度元のメッシュ表面に吸着させる
@@ -950,12 +953,15 @@ class SelectionOperator:
         return best_body
     
     @staticmethod
-    def subdivide_region(main_mesh, patch_mesh):
+    def subdivide_region(main_mesh, patch_mesh, do_subdivide=True):
         """
         指定された領域（patch_mesh）とその周辺のメッシュを再分割し、
         造形用の高い解像度を持たせる。
         """
         if not main_mesh or not patch_mesh:
+            return main_mesh
+        
+        if not do_subdivide:
             return main_mesh
 
         print("Subdividing selected region...")
