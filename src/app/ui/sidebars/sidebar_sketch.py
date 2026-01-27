@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QButtonGroup, QLabel, QSlider, QHBoxLayout
+    QWidget, QVBoxLayout, QPushButton, QButtonGroup, QLabel, QSlider, QCheckBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
@@ -41,10 +41,15 @@ class SketchSidebar(QWidget):
             self.tool_group.addButton(btn)
             layout.addWidget(btn)
 
+        self.chk_auto_subdivide = QCheckBox("Auto Subdivide (Local Refinement)")
+        self.chk_auto_subdivide.setChecked(True)
+        self.chk_auto_subdivide.setToolTip("ONにすると、ストローク周辺のメッシュを自動で細かく分割してから変形します。\nOFFにすると、元のメッシュの密度のまま変形します（比較用）。")
+        layout.addWidget(self.chk_auto_subdivide)
+
         # パラメータ
         layout.addWidget(QLabel("Magnitude"))
         self.slider_mag = QSlider(Qt.Orientation.Horizontal)
-        self.slider_mag.setRange(-100, 100); self.slider_mag.setValue(50)
+        self.slider_mag.setRange(-1000, 1000); self.slider_mag.setValue(50)
         self.slider_mag.valueChanged.connect(self.param_changed.emit)
         layout.addWidget(self.slider_mag)
 
