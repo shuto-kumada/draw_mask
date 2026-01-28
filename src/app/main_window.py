@@ -127,11 +127,11 @@ class MainWindow(QMainWindow):
         self.view_stack.addWidget(scroll_area); self.view_stack.addWidget(self.viewport)
         main_layout.addWidget(self.view_stack, 1)
 
-        self.sketch_sidebar.chk_auto_subdivide.stateChanged.connect(
+        self.object_sidebar.chk_auto_subdivide.stateChanged.connect(
             lambda state: self.viewport.set_auto_subdivide(state == 2) # Qt.CheckState.Checked = 2
         )
         # 初期値をセット
-        self.viewport.set_auto_subdivide(self.sketch_sidebar.chk_auto_subdivide.isChecked())
+        self.viewport.set_auto_subdivide(self.object_sidebar.chk_auto_subdivide.isChecked())
 
     # --- イベントハンドラ ---
     def on_mode_changed(self, index):
@@ -214,7 +214,7 @@ class MainWindow(QMainWindow):
         w = self.canvas.width()
         h = self.canvas.height()
 
-        is_region_subdivide_on = self.sketch_sidebar.chk_auto_subdivide.isChecked()
+        is_region_subdivide_on = self.object_sidebar.chk_auto_subdivide.isChecked()
 
         if deformations:
             print("Deforming base object...")
@@ -312,7 +312,7 @@ class MainWindow(QMainWindow):
         
         w = self.canvas.width(); h = self.canvas.height()
 
-        is_region_subdivide_on = self.sketch_sidebar.chk_auto_subdivide.isChecked()
+        is_region_subdivide_on = self.object_sidebar.chk_auto_subdivide.isChecked()
 
         # 1. Trace視点で変形
         if deformations:

@@ -41,11 +41,6 @@ class SketchSidebar(QWidget):
             self.tool_group.addButton(btn)
             layout.addWidget(btn)
 
-        self.chk_auto_subdivide = QCheckBox("Auto Subdivide (Local Refinement)")
-        self.chk_auto_subdivide.setChecked(True)
-        self.chk_auto_subdivide.setToolTip("ONにすると、ストローク周辺のメッシュを自動で細かく分割してから変形します。\nOFFにすると、元のメッシュの密度のまま変形します（比較用）。")
-        layout.addWidget(self.chk_auto_subdivide)
-
         # パラメータ
         layout.addWidget(QLabel("Magnitude"))
         self.slider_mag = QSlider(Qt.Orientation.Horizontal)

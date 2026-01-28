@@ -48,6 +48,11 @@ class ObjectSidebar(QWidget):
         layout.addWidget(self.mode_view_btn)
         layout.addWidget(self.mode_trace_btn)
 
+        self.chk_auto_subdivide = QCheckBox("Auto Subdivide (Region Only)")
+        self.chk_auto_subdivide.setChecked(True) # デフォルトON
+        self.chk_auto_subdivide.setToolTip("領域指定(Fit/Trace)の際に、自動的にメッシュを細かく再分割します。\nOFFにすると、元のメッシュ解像度を維持します。")
+        layout.addWidget(self.chk_auto_subdivide)
+
         self.btn_smooth = QPushButton("Smooth Mesh")
         self.btn_smooth.setStyleSheet("""
             QPushButton {

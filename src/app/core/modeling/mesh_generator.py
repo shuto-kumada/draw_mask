@@ -135,7 +135,7 @@ class MeshGenerator:
         mesh_strokes = {}
         # Fixed Point
         if 'fixed_point' in strokes and strokes['fixed_point']:
-            mesh_strokes['fixed_point'] = [resample_stroke(clean_polygon(s), 3.0) for s in strokes['fixed_point']]
+            mesh_strokes['fixed_point'] = [resample_stroke(clean_polygon(s), 10.0) for s in strokes['fixed_point']]
         
         # Deformation
         if strokes['deformation']:
@@ -143,7 +143,7 @@ class MeshGenerator:
             for item in strokes['deformation']:
                 if isinstance(item, dict) and 'points' in item: pts = item['points']
                 else: pts = item
-                def_list.append(resample_stroke(clean_polygon(pts), 3.0))
+                def_list.append(resample_stroke(clean_polygon(pts), 10.0))
             mesh_strokes['deformation'] = def_list
             
         # Hole (壁として登録)
