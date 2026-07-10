@@ -16,6 +16,9 @@ class SketchSidebar(QWidget):
     fit_clicked = pyqtSignal()
     trace_fit_clicked = pyqtSignal()
 
+    save_data_clicked = pyqtSignal()
+    load_data_clicked = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -76,6 +79,16 @@ class SketchSidebar(QWidget):
         self.btn_save = QPushButton("Save Sketch Image")
         self.btn_save.clicked.connect(self.save_clicked.emit)
         layout.addWidget(self.btn_save)
+
+        self.btn_save_data = QPushButton("Save Sketch Data (.json)")
+        self.btn_save_data.setStyleSheet("background-color: #dcedc1; border: 1px solid #a8c686;")
+        self.btn_save_data.clicked.connect(self.save_data_clicked.emit)
+        layout.addWidget(self.btn_save_data)
+
+        self.btn_load_data = QPushButton("Load Sketch Data (.json)")
+        self.btn_load_data.setStyleSheet("background-color: #dcedc1; border: 1px solid #a8c686;")
+        self.btn_load_data.clicked.connect(self.load_data_clicked.emit)
+        layout.addWidget(self.btn_load_data)
 
         self.btn_fit = QPushButton("Fit to Object >>")
         self.btn_fit.setStyleSheet("""

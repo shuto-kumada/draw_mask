@@ -236,7 +236,8 @@ class MeshGenerator:
                         fixed_set.add(idx)
 
         # 7. ソルバー実行
-        delta_scalar = solve_laplace(num_vertices, triangles, fixed_deltas, fixed_set)
+        #delta_scalar = solve_laplace(num_vertices, triangles, fixed_deltas, fixed_set)
+        delta_scalar = solve_laplace(num_vertices, vertices_2d, triangles, fixed_deltas, fixed_set)
         delta_scalar = np.nan_to_num(delta_scalar, nan=0.0)
 
         # === 最終座標の決定 ===

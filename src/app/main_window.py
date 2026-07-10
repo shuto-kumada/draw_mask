@@ -107,6 +107,9 @@ class MainWindow(QMainWindow):
         self.sketch_sidebar.fit_clicked.connect(self.on_fit_to_object_clicked)
         self.sketch_sidebar.trace_fit_clicked.connect(self.on_trace_fit_clicked)
 
+        self.sketch_sidebar.save_data_clicked.connect(self.on_save_sketch_data_clicked)
+        self.sketch_sidebar.load_data_clicked.connect(self.on_load_sketch_data_clicked)
+
         self.object_sidebar = ObjectSidebar()
         self.sidebar_stack.addWidget(self.object_sidebar)
         
@@ -332,3 +335,25 @@ class MainWindow(QMainWindow):
         self.object_sidebar.mode_view_btn.setChecked(True)
         self.object_sidebar.mode_trace_btn.setChecked(False)
         # モード自体はViewport側で set_trace_mode(False) されているのでUIの同期のみ
+
+    def on_save_sketch_data_clicked(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        output_dir = os.path.join(base_dir, "output")
+        if not os.path.exists(output_dir): os.makedirs(output_dir)
+        
+        path, _ = QFileDialog.getSaveFileName(self, "Save Sketch Data", output_dir, "JSON Files (*.json)")
+        if path:
+            self.canvas.sketch_data.save_to_file(path)
+
+    def on_load_sketch_data_clicked(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        output_dir = os.path.join(base_dir, "output")
+        
+        path, _ = QFileDialog.getOpenFileName(self, "Load Sketch Data", output_dir, "JSON Files (*.json)")
+        if path:
+            try:
+                self.canvas.sketch_data.load_from_file(path)
+                self.canvas.redraw_all_strokes() # キャンバスを再描画
+                QMessageBox.information(self, "Success", "スケッチデータを読み込みました。")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load sketch data:\n{e}")

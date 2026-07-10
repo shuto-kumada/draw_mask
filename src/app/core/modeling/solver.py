@@ -3,6 +3,9 @@ from scipy.sparse import lil_matrix, csr_matrix
 from scipy.sparse.linalg import spsolve
 from scipy.spatial import cKDTree
 
+import scipy.sparse as sp
+import scipy.sparse.linalg as spla
+
 def compute_parametric_heights(n, verts, fixed_point_strokes, orig_defs, tree):
     """
     変形ストロークごとに「固定点との交差点」を探し、
@@ -175,8 +178,9 @@ def compute_parametric_heights(n, verts, fixed_point_strokes, orig_defs, tree):
                 
     return fixed_h, fixed_s
 
+"""
 def solve_laplace(n, tris, fixed_h, fixed_s):
-    """Dirichlet境界条件付きラプラス方程式ソルバー"""
+    #Dirichlet境界条件付きラプラス方程式ソルバー
     A = lil_matrix((n, n))
     b = np.zeros(n)
     adj = [set() for _ in range(n)]
@@ -197,3 +201,76 @@ def solve_laplace(n, tris, fixed_h, fixed_s):
             b[i] = 0.0
 
     return spsolve(A.tocsc(), b)
+"""
+
+#"""
+def build_cotan_laplacian(n, verts, tris):
+    #Cotangent weightsを用いたラプラシアン行列の構築
+    I = []
+    J = []
+    V = []
+    
+    # 各三角形についてコタンジェント重みを計算
+    for t in tris:
+        for i in range(3):
+            v0 = verts[t[i]]
+            v1 = verts[t[(i+1)%3]]
+            v2 = verts[t[(i+2)%3]]
+            
+            # 対角の角度のcotを計算 (cot = cos/sin = dot / ||cross||)
+            e1 = v1 - v0
+            e2 = v2 - v0
+            cross_norm = np.linalg.norm(np.cross(e1, e2))
+            if cross_norm < 1e-8:
+                cot_weight = 0.0
+            else:
+                cot_weight = np.dot(e1, e2) / cross_norm
+            
+            # 重みを 0.5 * cot としてエッジ(v1, v2)に加算
+            weight = 0.5 * cot_weight
+            
+            idx1, idx2 = t[(i+1)%3], t[(i+2)%3]
+            I.extend([idx1, idx2])
+            J.extend([idx2, idx1])
+            V.extend([-weight, -weight])
+            
+    # 疎行列 L_cot の作成
+    W = sp.coo_matrix((V, (I, J)), shape=(n, n)).tocsr()
+    
+    # 対角成分は行の和のマイナス値 (L @ 1 = 0 を満たすため)
+    diag_data = -np.array(W.sum(axis=1)).flatten()
+    L_cot = sp.diags(diag_data) + W
+    
+    return L_cot
+
+def solve_laplace(n, verts, tris, fixed_h, fixed_s):
+    #幾何学的特徴(Cotan)を考慮したラプラス方程式の求解 (Hard Constraints)
+
+    # 1. コタンジェント・ラプラシアンの構築 [cite: 211, 223]
+    L = build_cotan_laplacian(n, verts, tris)
+    
+    # 2. 変数消去法 (Elimination) のためのインデックス準備
+    all_indices = np.arange(n)
+    fixed_indices = np.array(list(fixed_s))
+    free_indices = np.setdiff1d(all_indices, fixed_indices)
+    
+    # 固定された頂点のターゲット値ベクトル
+    targets = np.array([fixed_h[i] for i in fixed_indices])
+    
+    # 3. 行列のブロック分割
+    L_ff = L[free_indices, :][:, free_indices]
+    L_fc = L[free_indices, :][:, fixed_indices]
+    
+    # 4. 連立方程式の構築: L_ff * x_f = - L_fc * x_c
+    rhs = - L_fc.dot(targets)
+    
+    # 5. 疎行列ソルバーで自由頂点の高さを解く
+    x_free = spla.spsolve(L_ff, rhs)
+    
+    # 6. 結果の結合
+    result = np.zeros(n)
+    result[fixed_indices] = targets
+    result[free_indices] = x_free
+    
+    return result
+#"""

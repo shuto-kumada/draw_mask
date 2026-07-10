@@ -281,3 +281,32 @@ class SketchCanvas(QWidget):
         elif tool_type == 'hole': return QColor(150, 150, 150), 3
         
         return Qt.GlobalColor.black, 2
+
+    def redraw_all_strokes(self):
+        """現在の sketch_data.strokes に基づいてキャンバスを全描画する"""
+        self.pixmap.fill(Qt.GlobalColor.white)
+        painter = QPainter(self.pixmap)
+        
+        for s_type, strokes in self.sketch_data.strokes.items():
+            for stroke_item in strokes:
+                if isinstance(stroke_item, dict):
+                    points = stroke_item['points']
+                    params = stroke_item['params']
+                else:
+                    points = stroke_item
+                    params = {}
+                
+                if len(points) < 2:
+                    continue
+                    
+                pen_color, pen_width = self._get_pen_style(s_type, params)
+                pen = QPen(pen_color, pen_width, Qt.PenStyle.SolidLine, 
+                           Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+                painter.setPen(pen)
+                
+                qpoints = [QPoint(int(pt[0]), int(pt[1])) for pt in points]
+                for i in range(len(qpoints) - 1):
+                    painter.drawLine(qpoints[i], qpoints[i+1])
+                    
+        painter.end()
+        self.update()

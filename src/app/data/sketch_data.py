@@ -3,6 +3,8 @@ from scipy.spatial import cKDTree
 from shapely.geometry import LineString, Point, MultiLineString
 from shapely.ops import unary_union, linemerge, polygonize
 
+import json
+
 class SketchData:
     def __init__(self):
         # ストロークの種類ごとに座標リストを保存する辞書
@@ -148,3 +150,47 @@ class SketchData:
 
         self.strokes = new_strokes_structure
         print("Erase processing complete.")
+
+    def save_to_file(self, filepath):
+        """ストロークデータをJSONとして保存する"""
+        export_data = {'strokes': {}}
+        for key, val in self.strokes.items():
+            export_data['strokes'][key] = []
+            for item in val:
+                if isinstance(item, np.ndarray):
+                    export_data['strokes'][key].append(item.tolist())
+                elif isinstance(item, dict):
+                    # deformation は points と params を持つ
+                    export_data['strokes'][key].append({
+                        'points': item['points'].tolist(),
+                        'params': item['params']
+                    })
+                elif isinstance(item, list):
+                    export_data['strokes'][key].append(item)
+                    
+        with open(filepath, 'w') as f:
+            json.dump(export_data, f, indent=4)
+        print(f"Sketch data saved to {filepath}")
+
+    def load_from_file(self, filepath):
+        """JSONからストロークデータを読み込む"""
+        with open(filepath, 'r') as f:
+            import_data = json.load(f)
+
+        self.clear()
+        
+        for key, val in import_data.get('strokes', {}).items():
+            if key not in self.strokes:
+                continue
+            for item in val:
+                if isinstance(item, dict) and 'points' in item:
+                    # deformation の復元
+                    self.strokes[key].append({
+                        'points': np.array(item['points'], dtype=np.float32),
+                        'params': item['params']
+                    })
+                else:
+                    # boundary や hole などの復元
+                    self.strokes[key].append(np.array(item, dtype=np.float32))
+                    
+        print(f"Sketch data loaded from {filepath}")
